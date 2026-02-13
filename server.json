@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.llmsresearch/paperbanana",
   "title": "PaperBanana",
-  "description": "Generate publication-quality academic diagrams and statistical plots from text descriptions using a multi-agent pipeline with Google Gemini.",
+  "description": "Generate academic diagrams and statistical plots from text using multi-agent AI.",
   "version": "0.1.1",
   "packages": [
     {
