@@ -25,10 +25,10 @@ RUN mkdir -p outputs
 # Verify static files are in place
 RUN ls -la web/static/index.html
 
-# Railway sets PORT env var
-ENV PORT=8000
+# Railway sets PORT env var; default to 8080 for local Docker use
+ENV PORT=8080
 
-EXPOSE 8000
+EXPOSE 8080
 
 # Run uvicorn directly, reading PORT from env
 CMD sh -c "exec uvicorn web.app:app --host 0.0.0.0 --port ${PORT}"
