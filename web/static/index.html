@@ -349,11 +349,42 @@ async function startGeneration() {
       }
     }
   } catch (err) {
-    document.getElementById('completeBanner').innerHTML =
-      '<div class="error-banner">Connection error: ' + escapeHtml(err.message) + '</div>';
+    // SSE connection dropped — common on cloud platforms with long generations.
+    // The pipeline keeps running server-side, so poll for results.
+    document.getElementById('statusText').textContent = 'Connection interrupted — checking for results...';
+    document.getElementById('progressSpinner').style.display = 'inline-block';
+    await pollForResults();
   }
 
   btn.disabled = false;
+}
+
+async function pollForResults() {
+  // Poll /api/recent every 10s for up to 5 minutes to catch server-side completion
+  var maxAttempts = 30;
+  var initialCount = document.querySelectorAll('#recentRuns .iter-card').length;
+
+  for (var i = 0; i < maxAttempts; i++) {
+    await new Promise(function(r) { setTimeout(r, 10000); });
+    await loadRecent();
+
+    var newCount = document.querySelectorAll('#recentRuns .iter-card').length;
+    if (newCount > initialCount) {
+      // New images appeared — generation completed on the server
+      document.getElementById('progressFill').style.width = '100%';
+      document.getElementById('statusText').textContent = 'Done!';
+      document.getElementById('progressSpinner').style.display = 'none';
+      document.getElementById('completeBanner').innerHTML =
+        '<div class="complete-banner">Generation complete (recovered after connection drop)</div>';
+      return;
+    }
+  }
+
+  // Timed out waiting
+  document.getElementById('progressSpinner').style.display = 'none';
+  document.getElementById('statusText').textContent = 'Timed out';
+  document.getElementById('completeBanner').innerHTML =
+    '<div class="error-banner">Generation may still be running. Refresh the page in a minute to check.</div>';
 }
 
 function handleEvent(event, data, totalIterations) {

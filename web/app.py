@@ -33,6 +33,7 @@ class GenerateRequest(BaseModel):
 @app.on_event("startup")
 async def startup():
     logger.info("App starting, PORT=%s", os.environ.get("PORT", "not set"))
+    Path("outputs").mkdir(exist_ok=True)
 
 
 @app.get("/")
