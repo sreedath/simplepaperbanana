@@ -59,7 +59,7 @@ The Visualizer-Critic loop repeats for up to 3 iterations, progressively improvi
 
 Try it now (bring your own free Google Gemini API key):
 
-**[simplepaperbanana.up.railway.app](https://simplepaperbanana.up.railway.app)**
+**[paperbanana.vizuara.ai](https://paperbanana.vizuara.ai)**
 
 Your API key is stored only in your browser's localStorage and is never persisted on the server.
 
