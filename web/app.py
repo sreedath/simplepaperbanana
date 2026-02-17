@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import os
 import uuid
 from pathlib import Path
@@ -15,9 +16,14 @@ from pydantic import BaseModel
 
 load_dotenv()
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("paperbanana.web")
+
 app = FastAPI(title="PaperBanana Web UI")
 
 STATIC_DIR = Path(__file__).parent / "static"
+logger.info("STATIC_DIR=%s exists=%s", STATIC_DIR, STATIC_DIR.exists())
+logger.info("index.html exists=%s", (STATIC_DIR / "index.html").exists())
 OUTPUT_DIR = Path("outputs")
 
 # In-memory mapping of web run_id -> pipeline run_id (for image serving)
@@ -31,9 +37,17 @@ class GenerateRequest(BaseModel):
     iterations: int = 3
 
 
+@app.on_event("startup")
+async def startup():
+    logger.info("App starting, PORT=%s", os.environ.get("PORT", "not set"))
+
+
 @app.get("/")
 async def index():
-    html = (STATIC_DIR / "index.html").read_text()
+    index_path = STATIC_DIR / "index.html"
+    if not index_path.exists():
+        return HTMLResponse(f"<h1>index.html not found at {index_path}</h1>", status_code=500)
+    html = index_path.read_text()
     return HTMLResponse(html)
 
 

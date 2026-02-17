@@ -22,9 +22,13 @@ RUN pip install --no-cache-dir ".[web]"
 # Create outputs directory
 RUN mkdir -p outputs
 
+# Verify static files are in place
+RUN ls -la web/static/index.html
+
 # Railway sets PORT env var
 ENV PORT=8000
 
 EXPOSE 8000
 
-CMD sh -c "uvicorn web.app:app --host 0.0.0.0 --port ${PORT}"
+# Run uvicorn directly, reading PORT from env
+CMD sh -c "exec uvicorn web.app:app --host 0.0.0.0 --port ${PORT}"
