@@ -400,15 +400,17 @@ function addIterationCard(data) {
     }
   }
 
-  var imgUrl = data.image_url;
+  // image_data is a base64 data URL
+  var imgSrc = data.image_data || '';
   var downloadName = 'paperbanana-iteration-' + data.iteration + '.png';
+  var downloadId = 'dl-iter-' + data.iteration;
 
   card.innerHTML =
-    '<img src="' + imgUrl + '" alt="Iteration ' + data.iteration + '" loading="lazy">' +
+    '<img src="' + imgSrc + '" alt="Iteration ' + data.iteration + '">' +
     '<div class="body">' +
       '<div class="iter-card-header">' +
         '<span class="iter-badge">Iteration ' + data.iteration + '</span>' +
-        '<a class="download-btn" href="' + imgUrl + '" download="' + downloadName + '">' +
+        '<a class="download-btn" id="' + downloadId + '" href="#" onclick="downloadImage(\'' + downloadId + '\', \'' + downloadName + '\')">' +
           DOWNLOAD_ICON + ' Download' +
         '</a>' +
       '</div>' +
@@ -419,6 +421,21 @@ function addIterationCard(data) {
     '</div>';
 
   grid.appendChild(card);
+
+  // Store data URL on the download link for later use
+  document.getElementById(downloadId).dataset.src = imgSrc;
+}
+
+function downloadImage(linkId, filename) {
+  var link = document.getElementById(linkId);
+  var dataUrl = link.dataset.src;
+  if (!dataUrl) return;
+  var a = document.createElement('a');
+  a.href = dataUrl;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
 }
 
 function escapeHtml(str) {

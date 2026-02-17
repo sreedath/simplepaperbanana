@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import json
 import logging
 import os
-import uuid
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -22,12 +22,6 @@ logger = logging.getLogger("paperbanana.web")
 app = FastAPI(title="PaperBanana Web UI")
 
 STATIC_DIR = Path(__file__).parent / "static"
-logger.info("STATIC_DIR=%s exists=%s", STATIC_DIR, STATIC_DIR.exists())
-logger.info("index.html exists=%s", (STATIC_DIR / "index.html").exists())
-OUTPUT_DIR = Path("outputs")
-
-# In-memory mapping of web run_id -> pipeline run_id (for image serving)
-_run_dirs: dict[str, Path] = {}
 
 
 class GenerateRequest(BaseModel):
@@ -47,8 +41,7 @@ async def index():
     index_path = STATIC_DIR / "index.html"
     if not index_path.exists():
         return HTMLResponse(f"<h1>index.html not found at {index_path}</h1>", status_code=500)
-    html = index_path.read_text()
-    return HTMLResponse(html)
+    return HTMLResponse(index_path.read_text())
 
 
 @app.get("/favicon.png")
@@ -62,7 +55,6 @@ async def health():
 
 
 def _resolve_api_key(header_key: str | None) -> str | None:
-    """Resolve API key: prefer per-request header, fall back to server env."""
     if header_key:
         return header_key
     return os.environ.get("GOOGLE_API_KEY")
@@ -70,6 +62,19 @@ def _resolve_api_key(header_key: str | None) -> str | None:
 
 def _sse(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data)}\n\n"
+
+
+def _image_to_data_url(image_path: str) -> str | None:
+    """Read an image file and return a base64 data URL."""
+    p = Path(image_path)
+    if not p.exists():
+        logger.warning("Image not found: %s", image_path)
+        return None
+    ext = p.suffix.lower().lstrip(".")
+    mime = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg", "webp": "image/webp"}
+    content_type = mime.get(ext, "image/png")
+    b64 = base64.b64encode(p.read_bytes()).decode("ascii")
+    return f"data:{content_type};base64,{b64}"
 
 
 @app.post("/api/generate")
@@ -82,7 +87,6 @@ async def generate(req: GenerateRequest, x_api_key: str | None = Header(None)):
         )
 
     async def stream():
-        run_id = uuid.uuid4().hex[:12]
         queue: asyncio.Queue = asyncio.Queue()
 
         async def on_iteration(record):
@@ -95,7 +99,6 @@ async def generate(req: GenerateRequest, x_api_key: str | None = Header(None)):
             from paperbanana.core.pipeline import PaperBananaPipeline
             from paperbanana.core.types import DiagramType, GenerationInput
 
-            # Set key in env for this request so providers can pick it up
             os.environ["GOOGLE_API_KEY"] = api_key
 
             settings = Settings(refinement_iterations=req.iterations)
@@ -105,15 +108,12 @@ async def generate(req: GenerateRequest, x_api_key: str | None = Header(None)):
                 force_all_iterations=True,
             )
 
-            _run_dirs[run_id] = pipeline._run_dir
-
             gen_input = GenerationInput(
                 source_context=req.source_context,
                 communicative_intent=req.communicative_intent,
                 diagram_type=DiagramType(req.diagram_type),
             )
 
-            # Run pipeline in background task so we can stream iterations
             task = asyncio.create_task(pipeline.generate(gen_input))
 
             yield _sse("status", {"message": "Planning diagram (this may take a minute)..."})
@@ -131,8 +131,8 @@ async def generate(req: GenerateRequest, x_api_key: str | None = Header(None)):
                     "message": f"Completed iteration {record.iteration}/{req.iterations}"
                 })
 
-                image_name = Path(record.image_path).name
-                image_url = f"/api/images/{run_id}/{image_name}"
+                # Encode image as base64 data URL — no separate request needed
+                image_data_url = _image_to_data_url(record.image_path)
 
                 critique_data = None
                 if record.critique:
@@ -144,24 +144,24 @@ async def generate(req: GenerateRequest, x_api_key: str | None = Header(None)):
 
                 yield _sse("iteration", {
                     "iteration": record.iteration,
-                    "image_url": image_url,
+                    "image_data": image_data_url,
                     "description": record.description[:500],
                     "critique": critique_data,
                 })
 
             result = await task
 
-            final_name = Path(result.image_path).name
-            final_url = f"/api/images/{run_id}/{final_name}"
+            # Final image as data URL too
+            final_data_url = _image_to_data_url(result.image_path)
 
             yield _sse("complete", {
                 "message": "Generation complete!",
-                "final_image_url": final_url,
-                "run_id": run_id,
+                "final_image_data": final_data_url,
                 "total_iterations": len(result.iterations),
             })
 
         except Exception as e:
+            logger.exception("Generation failed")
             yield _sse("error", {"message": str(e)})
 
     return StreamingResponse(
@@ -174,28 +174,10 @@ async def generate(req: GenerateRequest, x_api_key: str | None = Header(None)):
     )
 
 
-@app.get("/api/images/{run_id}/{filename}")
-async def serve_image(run_id: str, filename: str):
-    run_dir = _run_dirs.get(run_id)
-    if not run_dir:
-        if OUTPUT_DIR.exists():
-            for d in OUTPUT_DIR.iterdir():
-                candidate = d / filename
-                if candidate.exists():
-                    return FileResponse(candidate)
-        return JSONResponse({"error": "not found"}, status_code=404)
-
-    for path in [run_dir / filename, *run_dir.glob(f"*/{filename}")]:
-        if path.exists():
-            return FileResponse(path)
-
-    return JSONResponse({"error": "not found"}, status_code=404)
-
-
 def main():
     import uvicorn
 
-    port = int(os.environ.get("PORT", 8000))
+    port = int(os.environ.get("PORT", 8080))
     uvicorn.run(
         "web.app:app",
         host="0.0.0.0",
