@@ -201,6 +201,12 @@
     <div class="iter-grid" id="iterGrid"></div>
     <div id="completeBanner"></div>
   </div>
+
+  <!-- Recent generations — loaded on page open -->
+  <div id="recentSection" style="display:none; margin-top:2rem;">
+    <div class="results-title">Recent Generations</div>
+    <div id="recentRuns"></div>
+  </div>
 </div>
 
 <script>
@@ -336,7 +342,9 @@ async function startGeneration() {
           try {
             var data = JSON.parse(dataStr);
             handleEvent(eventType, data, iterations);
-          } catch (e) {}
+          } catch (e) {
+            console.error('SSE parse error:', eventType, e.message);
+          }
         }
       }
     }
@@ -373,6 +381,7 @@ function handleEvent(event, data, totalIterations) {
       document.getElementById('progressSpinner').style.display = 'none';
       document.getElementById('completeBanner').innerHTML =
         '<div class="complete-banner">Generation complete — ' + data.total_iterations + ' iteration(s) produced</div>';
+      loadRecent();
       break;
 
     case 'error':
@@ -400,17 +409,15 @@ function addIterationCard(data) {
     }
   }
 
-  // image_data is a base64 data URL
-  var imgSrc = data.image_data || '';
+  var imgUrl = data.image_url || '';
   var downloadName = 'paperbanana-iteration-' + data.iteration + '.png';
-  var downloadId = 'dl-iter-' + data.iteration;
 
   card.innerHTML =
-    '<img src="' + imgSrc + '" alt="Iteration ' + data.iteration + '">' +
+    '<img src="' + escapeHtml(imgUrl) + '" alt="Iteration ' + data.iteration + '">' +
     '<div class="body">' +
       '<div class="iter-card-header">' +
         '<span class="iter-badge">Iteration ' + data.iteration + '</span>' +
-        '<a class="download-btn" id="' + downloadId + '" href="#" onclick="downloadImage(\'' + downloadId + '\', \'' + downloadName + '\')">' +
+        '<a class="download-btn" href="' + escapeHtml(imgUrl) + '" download="' + downloadName + '">' +
           DOWNLOAD_ICON + ' Download' +
         '</a>' +
       '</div>' +
@@ -421,21 +428,6 @@ function addIterationCard(data) {
     '</div>';
 
   grid.appendChild(card);
-
-  // Store data URL on the download link for later use
-  document.getElementById(downloadId).dataset.src = imgSrc;
-}
-
-function downloadImage(linkId, filename) {
-  var link = document.getElementById(linkId);
-  var dataUrl = link.dataset.src;
-  if (!dataUrl) return;
-  var a = document.createElement('a');
-  a.href = dataUrl;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
 }
 
 function escapeHtml(str) {
@@ -443,6 +435,55 @@ function escapeHtml(str) {
   div.textContent = str;
   return div.innerHTML;
 }
+
+// ── Load recent generations on page open + after generation ─
+async function loadRecent() {
+  try {
+    var res = await fetch('/api/recent');
+    var data = await res.json();
+    if (!data.runs || data.runs.length === 0) return;
+
+    var section = document.getElementById('recentSection');
+    var container = document.getElementById('recentRuns');
+    container.innerHTML = '';
+    section.style.display = 'block';
+
+    data.runs.forEach(function(run) {
+      var runDiv = document.createElement('div');
+      runDiv.style.marginBottom = '1.5rem';
+
+      var title = document.createElement('div');
+      title.style.cssText = 'font-size:0.85rem;color:#6b7280;margin-bottom:0.5rem;font-weight:600;';
+      title.textContent = run.run_id;
+      runDiv.appendChild(title);
+
+      var grid = document.createElement('div');
+      grid.className = 'iter-grid';
+
+      run.images.forEach(function(url, idx) {
+        var card = document.createElement('div');
+        card.className = 'iter-card';
+        card.innerHTML =
+          '<img src="' + escapeHtml(url) + '" alt="Iteration ' + (idx + 1) + '">' +
+          '<div class="body">' +
+            '<div class="iter-card-header">' +
+              '<span class="iter-badge">Iteration ' + (idx + 1) + '</span>' +
+              '<a class="download-btn" href="' + escapeHtml(url) + '" download="diagram_iter_' + (idx + 1) + '.png">' +
+                DOWNLOAD_ICON + ' Download' +
+              '</a>' +
+            '</div>' +
+          '</div>';
+        grid.appendChild(card);
+      });
+
+      runDiv.appendChild(grid);
+      container.appendChild(runDiv);
+    });
+  } catch (e) {
+    console.error('Failed to load recent runs:', e);
+  }
+}
+loadRecent();
 </script>
 </body>
 </html>

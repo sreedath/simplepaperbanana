@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import base64
 import json
 import logging
 import os
@@ -64,17 +63,59 @@ def _sse(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data)}\n\n"
 
 
-def _image_to_data_url(image_path: str) -> str | None:
-    """Read an image file and return a base64 data URL."""
+def _to_image_url(image_path: str) -> str | None:
+    """Convert a local image path to a serveable /api/images/ URL."""
     p = Path(image_path)
     if not p.exists():
         logger.warning("Image not found: %s", image_path)
         return None
-    ext = p.suffix.lower().lstrip(".")
-    mime = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg", "webp": "image/webp"}
-    content_type = mime.get(ext, "image/png")
-    b64 = base64.b64encode(p.read_bytes()).decode("ascii")
-    return f"data:{content_type};base64,{b64}"
+    # image_path is typically "outputs/run_XXXX/file.png" (relative) or absolute
+    try:
+        rel = p.relative_to(Path.cwd() / "outputs")
+    except ValueError:
+        try:
+            rel = p.relative_to("outputs")
+        except ValueError:
+            rel = Path(p.name)
+    return f"/api/images/{rel}"
+
+
+@app.get("/api/images/{path:path}")
+async def serve_image(path: str):
+    """Serve generated images from the outputs/ directory."""
+    fp = Path("outputs") / path
+    if not fp.exists():
+        return JSONResponse({"error": "Image not found"}, status_code=404)
+    ext = fp.suffix.lower().lstrip(".")
+    media = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg", "webp": "image/webp"}
+    return FileResponse(fp, media_type=media.get(ext, "image/png"))
+
+
+@app.get("/api/recent")
+async def recent_runs():
+    """Return the most recent run's images for display."""
+    outputs = Path("outputs")
+    if not outputs.exists():
+        return JSONResponse({"runs": []})
+
+    runs = []
+    for run_dir in sorted(outputs.iterdir(), reverse=True):
+        if not run_dir.is_dir() or not run_dir.name.startswith("run_"):
+            continue
+        images = sorted(run_dir.glob("diagram_iter_*.png"))
+        if images:
+            run_images = []
+            for img in images:
+                try:
+                    rel = img.relative_to(outputs)
+                except ValueError:
+                    rel = Path(img.name)
+                run_images.append(f"/api/images/{rel}")
+            runs.append({"run_id": run_dir.name, "images": run_images})
+        if len(runs) >= 10:  # last 10 runs max
+            break
+
+    return JSONResponse({"runs": runs})
 
 
 @app.post("/api/generate")
@@ -131,8 +172,7 @@ async def generate(req: GenerateRequest, x_api_key: str | None = Header(None)):
                     "message": f"Completed iteration {record.iteration}/{req.iterations}"
                 })
 
-                # Encode image as base64 data URL — no separate request needed
-                image_data_url = _image_to_data_url(record.image_path)
+                image_url = _to_image_url(record.image_path)
 
                 critique_data = None
                 if record.critique:
@@ -144,19 +184,18 @@ async def generate(req: GenerateRequest, x_api_key: str | None = Header(None)):
 
                 yield _sse("iteration", {
                     "iteration": record.iteration,
-                    "image_data": image_data_url,
+                    "image_url": image_url,
                     "description": record.description[:500],
                     "critique": critique_data,
                 })
 
             result = await task
 
-            # Final image as data URL too
-            final_data_url = _image_to_data_url(result.image_path)
+            final_url = _to_image_url(result.image_path)
 
             yield _sse("complete", {
                 "message": "Generation complete!",
-                "final_image_data": final_data_url,
+                "final_image_url": final_url,
                 "total_iterations": len(result.iterations),
             })
 
