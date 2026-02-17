@@ -51,6 +51,11 @@ async def index():
     return HTMLResponse(html)
 
 
+@app.get("/favicon.png")
+async def favicon():
+    return FileResponse(STATIC_DIR / "favicon.png", media_type="image/png")
+
+
 @app.get("/api/health")
 async def health():
     return {"ok": True}
