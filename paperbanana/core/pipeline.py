@@ -89,6 +89,8 @@ class PaperBananaPipeline:
         settings: Optional[Settings] = None,
         vlm_client=None,
         image_gen_fn=None,
+        on_iteration=None,
+        force_all_iterations: bool = False,
     ):
         """Initialize the pipeline.
 
@@ -96,7 +98,11 @@ class PaperBananaPipeline:
             settings: Configuration settings. If None, loads from env/defaults.
             vlm_client: Optional pre-configured VLM client (for HF Spaces demo).
             image_gen_fn: Optional image generation function (for HF Spaces demo).
+            on_iteration: Optional async callback invoked after each iteration completes.
+            force_all_iterations: If True, run all iterations even if critic is satisfied.
         """
+        self._on_iteration = on_iteration
+        self._force_all_iterations = force_all_iterations
         self.settings = settings or Settings()
         self.run_id = generate_run_id()
 
@@ -303,6 +309,9 @@ class PaperBananaPipeline:
             )
             iterations.append(iteration_record)
 
+            if self._on_iteration:
+                await self._on_iteration(iteration_record)
+
             # Save iteration artifacts
             if self.settings.save_iterations:
                 iter_dir = ensure_dir(self._run_dir / f"iter_{i + 1}")
@@ -328,7 +337,8 @@ class PaperBananaPipeline:
                     iteration=i + 1,
                     summary=critique.summary,
                 )
-                break
+                if not self._force_all_iterations:
+                    break
 
         # Final output
         final_image = iterations[-1].image_path

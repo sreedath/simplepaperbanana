@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PaperBanana — Academic Illustration Generator</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --blue: #2563eb;
+    --blue-light: #dbeafe;
+    --yellow: #f59e0b;
+    --yellow-light: #fef3c7;
+    --gray-50: #f9fafb;
+    --gray-100: #f3f4f6;
+    --gray-200: #e5e7eb;
+    --gray-400: #9ca3af;
+    --gray-600: #4b5563;
+    --gray-800: #1f2937;
+    --red: #dc2626;
+    --green: #16a34a;
+    --radius: 8px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+  }
+  body {
+    font-family: Inter, system-ui, -apple-system, sans-serif;
+    background: var(--gray-50);
+    color: var(--gray-800);
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+  .container { max-width: 960px; margin: 0 auto; padding: 2rem 1.5rem; }
+
+  /* Header */
+  header { text-align: center; margin-bottom: 2rem; }
+  header h1 { font-size: 2rem; font-weight: 700; color: var(--gray-800); }
+  header h1 span { color: var(--yellow); }
+  header p { color: var(--gray-600); margin-top: 0.25rem; }
+
+  /* API key card */
+  .apikey-card {
+    background: var(--yellow-light); border: 1px solid #fde68a; border-radius: var(--radius);
+    padding: 1rem 1.25rem; margin-bottom: 1.5rem;
+  }
+  .apikey-card p { font-size: 0.875rem; color: #92400e; margin-bottom: 0.5rem; }
+  .apikey-card a { color: var(--blue); }
+  .apikey-row { display: flex; gap: 0.5rem; }
+  .apikey-row input {
+    flex: 1; padding: 0.5rem 0.75rem; border: 1px solid #fde68a; border-radius: var(--radius);
+    font-size: 0.875rem; font-family: monospace; background: #fff;
+  }
+  .apikey-row input:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-light); }
+  button.secondary {
+    background: #fff; color: var(--gray-800); border: 1px solid var(--gray-200); padding: 0.5rem 1rem;
+    border-radius: var(--radius); font-size: 0.875rem; font-weight: 600; cursor: pointer;
+    transition: background 0.15s; white-space: nowrap;
+  }
+  button.secondary:hover { background: var(--gray-100); }
+  .apikey-saved { font-size: 0.8rem; margin-top: 0.35rem; color: var(--green); display: none; }
+  .apikey-actions { display: flex; gap: 0.5rem; align-items: center; margin-top: 0.4rem; }
+  .apikey-actions .clear-link { font-size: 0.8rem; color: var(--gray-400); cursor: pointer; text-decoration: underline; }
+  .apikey-actions .clear-link:hover { color: var(--red); }
+
+  /* How it works */
+  details.how-it-works { background: #fff; border: 1px solid var(--gray-200); border-radius: var(--radius); margin-bottom: 1.5rem; box-shadow: var(--shadow); }
+  details.how-it-works summary { padding: 0.75rem 1rem; font-weight: 600; cursor: pointer; color: var(--blue); user-select: none; list-style: none; }
+  details.how-it-works summary::-webkit-details-marker { display: none; }
+  details.how-it-works summary::before { content: "\25B6"; display: inline-block; margin-right: 0.5rem; transition: transform 0.2s; font-size: 0.75rem; }
+  details.how-it-works[open] summary::before { transform: rotate(90deg); }
+  .pipeline-steps { padding: 0 1rem 1rem; }
+  .step { display: flex; align-items: flex-start; gap: 0.75rem; padding: 0.5rem 0; }
+  .step-num { flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%; background: var(--blue); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 600; }
+  .step-text strong { display: block; font-size: 0.9rem; }
+  .step-text span { font-size: 0.825rem; color: var(--gray-600); }
+
+  /* Form */
+  .form-card { background: #fff; border: 1px solid var(--gray-200); border-radius: var(--radius); padding: 1.5rem; box-shadow: var(--shadow); margin-bottom: 1.5rem; }
+  label { display: block; font-weight: 600; font-size: 0.875rem; margin-bottom: 0.35rem; color: var(--gray-800); }
+  textarea, input[type="text"] {
+    width: 100%; padding: 0.625rem 0.75rem; border: 1px solid var(--gray-200); border-radius: var(--radius);
+    font-size: 0.9rem; font-family: inherit; color: var(--gray-800); background: var(--gray-50);
+    transition: border-color 0.15s;
+  }
+  textarea:focus, input[type="text"]:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-light); }
+  textarea { resize: vertical; min-height: 120px; }
+  .form-row { margin-bottom: 1rem; }
+  .form-actions { display: flex; gap: 0.75rem; align-items: center; }
+  button.primary {
+    background: var(--blue); color: #fff; border: none; padding: 0.625rem 1.5rem;
+    border-radius: var(--radius); font-size: 0.9rem; font-weight: 600; cursor: pointer;
+    transition: background 0.15s;
+  }
+  button.primary:hover { background: #1d4ed8; }
+  button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .iter-select { font-size: 0.875rem; color: var(--gray-600); }
+  .iter-select select { padding: 0.35rem 0.5rem; border: 1px solid var(--gray-200); border-radius: var(--radius); font-size: 0.875rem; }
+
+  /* Progress */
+  #progress { display: none; margin-bottom: 1.5rem; }
+  .progress-bar { background: var(--gray-100); border-radius: 999px; height: 6px; overflow: hidden; margin-bottom: 0.5rem; }
+  .progress-fill { height: 100%; background: var(--blue); border-radius: 999px; transition: width 0.4s ease; width: 0%; }
+  .progress-status { font-size: 0.85rem; color: var(--gray-600); }
+  .progress-status .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--gray-200); border-top-color: var(--blue); border-radius: 50%; animation: spin 0.8s linear infinite; vertical-align: middle; margin-right: 0.4rem; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Results */
+  #results { display: none; }
+  .results-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem; }
+  .iter-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 1.25rem; }
+  .iter-card {
+    background: #fff; border: 1px solid var(--gray-200); border-radius: var(--radius); overflow: hidden;
+    box-shadow: var(--shadow); animation: fadeUp 0.4s ease;
+  }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  .iter-card img { width: 100%; aspect-ratio: 1; object-fit: contain; background: #fff; border-bottom: 1px solid var(--gray-200); }
+  .iter-card .body { padding: 0.75rem; }
+  .iter-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem; }
+  .iter-badge {
+    display: inline-block; padding: 0.2rem 0.6rem; font-size: 0.75rem; font-weight: 600;
+    background: var(--blue-light); color: var(--blue); border-radius: 999px;
+  }
+  .download-btn {
+    display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.25rem 0.6rem;
+    font-size: 0.75rem; font-weight: 600; color: var(--blue); background: var(--blue-light);
+    border: none; border-radius: var(--radius); cursor: pointer; text-decoration: none;
+    transition: background 0.15s;
+  }
+  .download-btn:hover { background: #bfdbfe; }
+  .download-btn svg { width: 14px; height: 14px; }
+  .critique-label { font-size: 0.75rem; font-weight: 600; color: var(--gray-400); text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 0.25rem; }
+  .critique-text { font-size: 0.825rem; color: var(--gray-600); }
+  .no-issues { color: var(--green); font-weight: 500; }
+
+  /* Banners */
+  .complete-banner { background: #dcfce7; border: 1px solid #bbf7d0; border-radius: var(--radius); padding: 1rem; margin-top: 1.25rem; text-align: center; font-weight: 600; color: #166534; }
+  .error-banner { background: #fef2f2; border: 1px solid #fecaca; border-radius: var(--radius); padding: 1rem; margin-top: 1.25rem; color: #991b1b; }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>Paper<span>Banana</span></h1>
+    <p>Agentic academic illustration generation</p>
+  </header>
+
+  <!-- API Key setup — always visible so users can manage their key -->
+  <div id="apikeyCard" class="apikey-card">
+    <p id="apikeyPrompt">Enter your Google Gemini API key to get started. Your key is stored only in your browser and never sent to our server.
+      <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Get a free key</a>.</p>
+    <div class="apikey-row">
+      <input type="password" id="apikeyInput" placeholder="AIzaSy...">
+      <button class="secondary" id="apikeySaveBtn" onclick="saveApiKey()">Save Key</button>
+    </div>
+    <div id="apikeySaved" class="apikey-saved">Key saved to browser.</div>
+    <div class="apikey-actions" id="apikeyActions" style="display:none">
+      <span class="clear-link" onclick="clearApiKey()">Clear saved key</span>
+    </div>
+  </div>
+
+  <details class="how-it-works">
+    <summary>How It Works — 5-Agent Pipeline</summary>
+    <div class="pipeline-steps">
+      <div class="step"><div class="step-num">1</div><div class="step-text"><strong>Retriever</strong><span>Finds the most relevant reference illustrations from a curated set</span></div></div>
+      <div class="step"><div class="step-num">2</div><div class="step-text"><strong>Planner</strong><span>Generates a detailed textual description of the diagram to create</span></div></div>
+      <div class="step"><div class="step-num">3</div><div class="step-text"><strong>Stylist</strong><span>Optimizes the description for visual aesthetics and academic conventions</span></div></div>
+      <div class="step"><div class="step-num">4</div><div class="step-text"><strong>Visualizer</strong><span>Generates the actual image from the optimized description</span></div></div>
+      <div class="step"><div class="step-num">5</div><div class="step-text"><strong>Critic</strong><span>Evaluates the image and suggests revisions (iterates with Visualizer)</span></div></div>
+    </div>
+  </details>
+
+  <div class="form-card">
+    <div class="form-row">
+      <label for="context">Methodology / Source Text</label>
+      <textarea id="context" placeholder="Paste your methodology section or relevant paper text here..."></textarea>
+    </div>
+    <div class="form-row">
+      <label for="caption">Figure Caption</label>
+      <input type="text" id="caption" placeholder="e.g. Overview of the proposed multi-agent framework for diagram generation">
+    </div>
+    <div class="form-actions">
+      <button class="primary" id="generateBtn" onclick="startGeneration()">Generate</button>
+      <span class="iter-select">
+        Iterations:
+        <select id="iterCount">
+          <option value="1">1</option>
+          <option value="2">2</option>
+          <option value="3" selected>3</option>
+        </select>
+      </span>
+    </div>
+  </div>
+
+  <div id="progress">
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="progress-status"><span class="spinner" id="progressSpinner"></span><span id="statusText">Starting...</span></div>
+  </div>
+
+  <div id="results">
+    <div class="results-title">Generated Iterations</div>
+    <div class="iter-grid" id="iterGrid"></div>
+    <div id="completeBanner"></div>
+  </div>
+</div>
+
+<script>
+var DOWNLOAD_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
+var STORAGE_KEY = 'paperbanana_api_key';
+
+// ── API Key (browser-only storage) ──────────────────────────
+
+function getApiKey() {
+  return localStorage.getItem(STORAGE_KEY) || '';
+}
+
+function saveApiKey() {
+  var key = document.getElementById('apikeyInput').value.trim();
+  if (!key) { alert('Please enter an API key.'); return; }
+  localStorage.setItem(STORAGE_KEY, key);
+  refreshKeyUI();
+}
+
+function clearApiKey() {
+  localStorage.removeItem(STORAGE_KEY);
+  document.getElementById('apikeyInput').value = '';
+  refreshKeyUI();
+}
+
+function refreshKeyUI() {
+  var key = getApiKey();
+  var saved = document.getElementById('apikeySaved');
+  var actions = document.getElementById('apikeyActions');
+  var input = document.getElementById('apikeyInput');
+  var prompt = document.getElementById('apikeyPrompt');
+  var btn = document.getElementById('apikeySaveBtn');
+
+  if (key) {
+    input.value = key;
+    saved.style.display = 'block';
+    actions.style.display = 'flex';
+    btn.textContent = 'Update Key';
+    prompt.innerHTML = 'Your Google Gemini API key is saved in this browser. <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Manage keys</a>.';
+  } else {
+    saved.style.display = 'none';
+    actions.style.display = 'none';
+    btn.textContent = 'Save Key';
+    prompt.innerHTML = 'Enter your Google Gemini API key to get started. Your key is stored only in your browser and never sent to our server. <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Get a free key</a>.';
+  }
+}
+
+refreshKeyUI();
+
+// ── Generation ──────────────────────────────────────────────
+
+async function startGeneration() {
+  var apiKey = getApiKey();
+  if (!apiKey) {
+    alert('Please save your API key first.');
+    document.getElementById('apikeyInput').focus();
+    return;
+  }
+
+  var context = document.getElementById('context').value.trim();
+  var caption = document.getElementById('caption').value.trim();
+  var iterations = parseInt(document.getElementById('iterCount').value);
+
+  if (!context || !caption) {
+    alert('Please fill in both the methodology text and the figure caption.');
+    return;
+  }
+
+  // Reset UI
+  var btn = document.getElementById('generateBtn');
+  btn.disabled = true;
+  document.getElementById('progress').style.display = 'block';
+  document.getElementById('progressSpinner').style.display = 'inline-block';
+  document.getElementById('results').style.display = 'block';
+  document.getElementById('iterGrid').innerHTML = '';
+  document.getElementById('completeBanner').innerHTML = '';
+  document.getElementById('progressFill').style.width = '0%';
+  document.getElementById('statusText').textContent = 'Starting...';
+
+  try {
+    var res = await fetch('/api/generate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Api-Key': apiKey,
+      },
+      body: JSON.stringify({
+        source_context: context,
+        communicative_intent: caption,
+        diagram_type: 'methodology',
+        iterations: iterations,
+      }),
+    });
+
+    if (res.status === 401) {
+      var err = await res.json();
+      document.getElementById('completeBanner').innerHTML =
+        '<div class="error-banner">' + escapeHtml(err.error || 'Invalid API key.') + '</div>';
+      btn.disabled = false;
+      return;
+    }
+
+    var reader = res.body.getReader();
+    var decoder = new TextDecoder();
+    var buffer = '';
+
+    while (true) {
+      var chunk = await reader.read();
+      if (chunk.done) break;
+
+      buffer += decoder.decode(chunk.value, { stream: true });
+
+      // Parse SSE: split on double-newline boundaries
+      var boundary;
+      while ((boundary = buffer.indexOf('\n\n')) !== -1) {
+        var block = buffer.slice(0, boundary).trim();
+        buffer = buffer.slice(boundary + 2);
+
+        if (!block || block.startsWith(':')) continue;
+
+        var eventType = 'message';
+        var dataStr = '';
+        var lines = block.split('\n');
+        for (var i = 0; i < lines.length; i++) {
+          if (lines[i].startsWith('event: ')) {
+            eventType = lines[i].slice(7).trim();
+          } else if (lines[i].startsWith('data: ')) {
+            dataStr += lines[i].slice(6);
+          }
+        }
+
+        if (dataStr) {
+          try {
+            var data = JSON.parse(dataStr);
+            handleEvent(eventType, data, iterations);
+          } catch (e) {}
+        }
+      }
+    }
+  } catch (err) {
+    document.getElementById('completeBanner').innerHTML =
+      '<div class="error-banner">Connection error: ' + escapeHtml(err.message) + '</div>';
+  }
+
+  btn.disabled = false;
+}
+
+function handleEvent(event, data, totalIterations) {
+  switch (event) {
+    case 'status':
+      document.getElementById('statusText').textContent = data.message;
+      if (data.message.indexOf('Completed iteration') !== -1) {
+        var match = data.message.match(/(\d+)\/(\d+)/);
+        if (match) {
+          var pct = 30 + (parseInt(match[1]) / parseInt(match[2])) * 70;
+          document.getElementById('progressFill').style.width = pct + '%';
+        }
+      } else if (data.message.indexOf('Planning') !== -1 || data.message.indexOf('Initializing') !== -1) {
+        document.getElementById('progressFill').style.width = '10%';
+      }
+      break;
+
+    case 'iteration':
+      addIterationCard(data);
+      break;
+
+    case 'complete':
+      document.getElementById('progressFill').style.width = '100%';
+      document.getElementById('statusText').textContent = 'Done!';
+      document.getElementById('progressSpinner').style.display = 'none';
+      document.getElementById('completeBanner').innerHTML =
+        '<div class="complete-banner">Generation complete — ' + data.total_iterations + ' iteration(s) produced</div>';
+      break;
+
+    case 'error':
+      document.getElementById('completeBanner').innerHTML =
+        '<div class="error-banner">Error: ' + escapeHtml(data.message) + '</div>';
+      document.getElementById('progressSpinner').style.display = 'none';
+      document.getElementById('statusText').textContent = 'Error';
+      break;
+  }
+}
+
+function addIterationCard(data) {
+  var grid = document.getElementById('iterGrid');
+  var card = document.createElement('div');
+  card.className = 'iter-card';
+
+  var critiqueHtml = '';
+  if (data.critique) {
+    if (data.critique.suggestions.length === 0) {
+      critiqueHtml = '<p class="critique-text no-issues">No issues found — publication-ready!</p>';
+    } else {
+      critiqueHtml = '<ul class="critique-text" style="padding-left:1.1rem;margin:0">' +
+        data.critique.suggestions.map(function(s) { return '<li>' + escapeHtml(s) + '</li>'; }).join('') +
+        '</ul>';
+    }
+  }
+
+  var imgUrl = data.image_url;
+  var downloadName = 'paperbanana-iteration-' + data.iteration + '.png';
+
+  card.innerHTML =
+    '<img src="' + imgUrl + '" alt="Iteration ' + data.iteration + '" loading="lazy">' +
+    '<div class="body">' +
+      '<div class="iter-card-header">' +
+        '<span class="iter-badge">Iteration ' + data.iteration + '</span>' +
+        '<a class="download-btn" href="' + imgUrl + '" download="' + downloadName + '">' +
+          DOWNLOAD_ICON + ' Download' +
+        '</a>' +
+      '</div>' +
+      '<div>' +
+        '<div class="critique-label">Critic Feedback</div>' +
+        critiqueHtml +
+      '</div>' +
+    '</div>';
+
+  grid.appendChild(card);
+}
+
+function escapeHtml(str) {
+  var div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+</script>
+</body>
+</html>

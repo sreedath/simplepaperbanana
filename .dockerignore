@@ -1,0 +1,17 @@
+.env
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.egg-info/
+dist/
+build/
+outputs/
+.git/
+.github/
+.DS_Store
+.cursor/
+.claude/
+*.log
+tests/
+docs/
